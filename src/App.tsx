@@ -10,6 +10,9 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import BookSession from "./pages/BookSession";
+import Quizzes from "./pages/Quizzes";
+import QuizPage from "./pages/QuizPage";
+import QuizResult from "./pages/QuizResult";
 import NotFound from "./pages/NotFound";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -43,6 +46,9 @@ const App = () => {
                 <Route path="/login" element={<Login setUser={setUser} />} />
                 <Route path="/profile" element={<Profile user={user} setUser={setUser} />} />
                 <Route path="/book-session" element={<BookSession user={user} />} />
+                <Route path="/quizzes" element={<Quizzes user={user} />} />
+                <Route path="/quiz/:quizId" element={<QuizPage user={user} />} />
+                <Route path="/quiz-result/:quizId" element={<QuizResult user={user} />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

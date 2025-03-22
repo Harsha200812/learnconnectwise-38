@@ -1,10 +1,20 @@
 
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, BookOpen, User, LogOut } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { UserProfile } from '@/lib/types';
+import {
+  GraduationCap,
+  BookOpen,
+  Menu,
+  X,
+  LogIn,
+  LogOut,
+  User,
+  Calendar,
+  Award
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   user: UserProfile | null;
@@ -12,170 +22,231 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ user, setUser }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Close mobile menu when route changes
-  useEffect(() => {
-    setIsOpen(false);
-  }, [location.pathname]);
 
   const handleLogout = () => {
-    // Clear user data from localStorage
     localStorage.removeItem('tutorapp_user');
-    // Update app state
     setUser(null);
-    // Show toast
-    toast.success("Logged out successfully");
+    toast.success('You have been logged out');
+    navigate('/');
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
   };
 
   return (
-    <nav 
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/80 backdrop-blur-md shadow-sm' : 'bg-transparent'
-      }`}
-    >
-      <div className="container-padding mx-auto">
-        <div className="flex justify-between items-center py-4">
+    <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50">
+      <div className="px-4 sm:px-6 lg:px-8 mx-auto max-w-7xl">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link 
-            to="/" 
-            className="flex items-center space-x-2 text-tutorblue-500 font-bold text-2xl transition-transform hover:scale-105"
-          >
-            <BookOpen size={28} />
-            <span className="hidden sm:block">TutorConnect</span>
+          <Link to="/" className="flex items-center gap-2">
+            <GraduationCap className="h-8 w-8 text-tutorblue-600" />
+            <span className="font-bold text-xl text-tutorblue-600 hidden sm:inline">
+              TutorConnect
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
-            <Link 
-              to="/" 
-              className={`hover:text-tutorblue-500 transition-colors ${location.pathname === '/' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+          <nav className="hidden md:flex items-center space-x-4">
+            <Link
+              to="/"
+              className={`text-sm font-medium hover:text-tutorblue-600 transition-colors ${
+                isActive('/') ? 'text-tutorblue-600' : 'text-gray-600'
+              }`}
             >
               Home
             </Link>
-            
+            {user && (
+              <>
+                <Link
+                  to="/book-session"
+                  className={`text-sm font-medium hover:text-tutorblue-600 transition-colors ${
+                    isActive('/book-session') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                >
+                  Book a Session
+                </Link>
+                <Link
+                  to="/quizzes"
+                  className={`text-sm font-medium hover:text-tutorblue-600 transition-colors ${
+                    isActive('/quizzes') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                >
+                  Quizzes
+                </Link>
+              </>
+            )}
+          </nav>
+
+          {/* User Actions */}
+          <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <Link 
-                  to="/book-session" 
-                  className={`hover:text-tutorblue-500 transition-colors ${location.pathname === '/book-session' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+                <Link
+                  to="/profile"
+                  className="hidden md:flex items-center text-sm font-medium text-gray-600 hover:text-tutorblue-600 transition-colors"
                 >
-                  Find Tutors
+                  <User className="h-4 w-4 mr-1" />
+                  {user.email.split('@')[0]}
                 </Link>
-                <Link 
-                  to="/profile" 
-                  className={`hover:text-tutorblue-500 transition-colors ${location.pathname === '/profile' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
-                >
-                  Profile
-                </Link>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-gray-700 hover:text-tutorblue-500 flex items-center gap-2"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleLogout}
+                  className="hidden md:flex"
                 >
-                  <LogOut size={16} />
-                  <span>Logout</span>
+                  <LogOut className="h-4 w-4 mr-1" />
+                  Log out
                 </Button>
               </>
             ) : (
               <>
-                <Link 
-                  to="/login" 
-                  className={`hover:text-tutorblue-500 transition-colors ${location.pathname === '/login' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
-                >
-                  Login
+                <Link to="/login">
+                  <Button variant="outline" size="sm" className="hidden md:flex">
+                    <LogIn className="h-4 w-4 mr-1" />
+                    Log in
+                  </Button>
                 </Link>
                 <Link to="/register">
-                  <Button variant="default" size="sm" className="bg-tutorblue-500 hover:bg-tutorblue-600">
+                  <Button size="sm" className="hidden md:flex bg-tutorblue-500 hover:bg-tutorblue-600">
                     Register
                   </Button>
                 </Link>
               </>
             )}
-          </div>
 
-          {/* Mobile Navigation Toggle */}
-          <button 
-            className="md:hidden text-gray-700 focus:outline-none"
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+            {/* Mobile Menu Button */}
+            <button
+              onClick={toggleMobileMenu}
+              className="md:hidden text-gray-600 hover:text-tutorblue-600 transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-white animate-slide-in">
-          <div className="container-padding mx-auto py-4 space-y-3">
-            <Link 
-              to="/" 
-              className={`block py-2 px-4 rounded-md hover:bg-tutorblue-50 ${location.pathname === '/' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-white border-t">
+          <div className="px-4 pt-2 pb-4 space-y-1">
+            <Link
+              to="/"
+              className={`block py-2 text-base ${
+                isActive('/') ? 'text-tutorblue-600' : 'text-gray-600'
+              }`}
+              onClick={closeMobileMenu}
             >
-              Home
+              <div className="flex items-center">
+                <BookOpen className="h-5 w-5 mr-2" />
+                Home
+              </div>
             </Link>
-            
-            {user ? (
+
+            {user && (
               <>
-                <Link 
-                  to="/book-session" 
-                  className={`block py-2 px-4 rounded-md hover:bg-tutorblue-50 ${location.pathname === '/book-session' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+                <Link
+                  to="/book-session"
+                  className={`block py-2 text-base ${
+                    isActive('/book-session') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                  onClick={closeMobileMenu}
                 >
-                  Find Tutors
+                  <div className="flex items-center">
+                    <Calendar className="h-5 w-5 mr-2" />
+                    Book a Session
+                  </div>
                 </Link>
-                <Link 
-                  to="/profile" 
-                  className={`block py-2 px-4 rounded-md hover:bg-tutorblue-50 ${location.pathname === '/profile' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+                
+                <Link
+                  to="/quizzes"
+                  className={`block py-2 text-base ${
+                    isActive('/quizzes') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                  onClick={closeMobileMenu}
                 >
-                  Profile
+                  <div className="flex items-center">
+                    <Award className="h-5 w-5 mr-2" />
+                    Quizzes
+                  </div>
                 </Link>
-                <button 
-                  className="w-full text-left py-2 px-4 rounded-md hover:bg-tutorblue-50 text-gray-700 flex items-center space-x-2"
-                  onClick={handleLogout}
+
+                <Link
+                  to="/profile"
+                  className={`block py-2 text-base ${
+                    isActive('/profile') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                  onClick={closeMobileMenu}
                 >
-                  <LogOut size={16} />
-                  <span>Logout</span>
+                  <div className="flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Profile
+                  </div>
+                </Link>
+
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    closeMobileMenu();
+                  }}
+                  className="w-full text-left block py-2 text-base text-gray-600"
+                >
+                  <div className="flex items-center">
+                    <LogOut className="h-5 w-5 mr-2" />
+                    Log out
+                  </div>
                 </button>
               </>
-            ) : (
+            )}
+
+            {!user && (
               <>
-                <Link 
-                  to="/login" 
-                  className={`block py-2 px-4 rounded-md hover:bg-tutorblue-50 ${location.pathname === '/login' ? 'text-tutorblue-500 font-medium' : 'text-gray-700'}`}
+                <Link
+                  to="/login"
+                  className={`block py-2 text-base ${
+                    isActive('/login') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                  onClick={closeMobileMenu}
                 >
-                  Login
+                  <div className="flex items-center">
+                    <LogIn className="h-5 w-5 mr-2" />
+                    Log in
+                  </div>
                 </Link>
-                <Link 
-                  to="/register" 
-                  className="block"
+
+                <Link
+                  to="/register"
+                  className={`block py-2 text-base ${
+                    isActive('/register') ? 'text-tutorblue-600' : 'text-gray-600'
+                  }`}
+                  onClick={closeMobileMenu}
                 >
-                  <Button variant="default" size="sm" className="w-full bg-tutorblue-500 hover:bg-tutorblue-600">
+                  <div className="flex items-center">
+                    <User className="h-5 w-5 mr-2" />
                     Register
-                  </Button>
+                  </div>
                 </Link>
               </>
             )}
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 };
 
