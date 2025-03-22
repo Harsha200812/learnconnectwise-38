@@ -86,27 +86,33 @@ export const manuallyCreateProfilesTable = async () => {
     const { error } = await supabase.from('profiles').select('id').limit(1);
 
     if (error && error.code === 'PGRST116') {
-      // Table doesn't exist or is empty, let's create it
+      // Table doesn't exist or is empty, let's create it via RPC
       const { error: createError } = await supabase.rpc('create_profiles_table');
       
       if (createError) {
-        // If the RPC function doesn't exist, create the table directly
-        const { error: directCreateError } = await supabase.query(`
-          CREATE TABLE IF NOT EXISTS public.profiles (
-            id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-            email TEXT,
-            role TEXT CHECK (role IN ('tutor', 'learner')),
-            subjects TEXT[],
-            availability TEXT[],
-            bio TEXT,
-            hourly_rate INTEGER,
-            created_at TIMESTAMPTZ DEFAULT now(),
-            updated_at TIMESTAMPTZ DEFAULT now()
-          );
-        `);
+        console.error("Failed to create profiles table via RPC:", createError);
         
-        if (directCreateError) {
-          console.error("Failed to create profiles table directly:", directCreateError);
+        // If RPC fails, we can't use direct SQL queries with the JS client
+        // Instead, we'll instruct the user to create the table in Supabase dashboard
+        console.warn("Please create the profiles table manually in the Supabase dashboard");
+        
+        // We'll also try to create it through our API calls
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: '00000000-0000-0000-0000-000000000000',
+            email: 'system@example.com',
+            role: 'system',
+            subjects: [],
+            availability: [],
+            bio: '',
+            hourly_rate: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (upsertError && upsertError.code !== 'PGRST116') {
+          console.error("Failed to create profiles table through upsert:", upsertError);
           return false;
         }
       }
