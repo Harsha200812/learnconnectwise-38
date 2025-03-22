@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -28,13 +27,11 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
     hourlyRate: 0,
   });
 
-  // Redirect to login if no user
   useEffect(() => {
     if (!user) {
       toast.error('Please sign in to view your profile');
       navigate('/login');
     } else {
-      // Load user data
       setFormData({
         subjects: user.subjects || [],
         availability: user.availability || [],
@@ -79,43 +76,33 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
     setIsSaving(true);
     
     try {
-      // Create updated user object
-      const updatedUser: UserProfile = {
-        ...user,
+      const updatedUser: Partial<UserProfile> = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
         subjects: formData.subjects || [],
         availability: formData.availability || [],
-        bio: formData.bio,
-        hourlyRate: formData.hourlyRate,
+        bio: formData.bio || '',
+        hourlyRate: formData.hourlyRate || 0,
       };
       
-      // Save to Supabase
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          subjects: formData.subjects || [],
-          availability: formData.availability || [],
-          bio: formData.bio,
-          hourly_rate: formData.hourlyRate,
-          updated_at: new Date().toISOString(),
-        });
+      console.log('Saving profile data:', updatedUser);
+      
+      const success = await updateUserProfile(updatedUser);
+      
+      if (success) {
+        const newUserState = {
+          ...user,
+          ...updatedUser
+        };
         
-      if (error) {
-        throw error;
+        localStorage.setItem('tutorapp_user', JSON.stringify(newUserState));
+        
+        setUser(newUserState);
       }
-      
-      // Update in localStorage
-      localStorage.setItem('tutorapp_user', JSON.stringify(updatedUser));
-      
-      // Update app state
-      setUser(updatedUser);
-      
-      toast.success('Profile updated successfully');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+    } catch (error: any) {
+      console.error('Error in profile update:', error);
+      toast.error('Failed to update profile: ' + (error.message || 'Unknown error'));
     } finally {
       setIsSaving(false);
     }
@@ -134,7 +121,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
       <h1 className="text-3xl font-bold mb-8">Your Profile</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* User Info Card */}
         <Card className="bg-white shadow-sm md:col-span-1">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl">Account Information</CardTitle>
@@ -168,7 +154,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
           </CardContent>
         </Card>
 
-        {/* Edit Profile Card */}
         <Card className="bg-white shadow-sm md:col-span-2">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl">Edit Profile</CardTitle>
@@ -176,7 +161,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
-              {/* Bio Section */}
               <div className="space-y-2">
                 <label htmlFor="bio" className="text-sm font-medium">
                   Bio / About
@@ -191,7 +175,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
                 />
               </div>
 
-              {/* Hourly Rate (for tutors) */}
               {user.role === 'tutor' && (
                 <div className="space-y-2">
                   <label htmlFor="rate" className="text-sm font-medium flex items-center gap-2">
@@ -214,7 +197,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
                 </div>
               )}
 
-              {/* Subjects Section */}
               <div className="space-y-3">
                 <label className="text-sm font-medium flex items-center gap-2">
                   <Book size={16} className="text-tutorblue-500" />
@@ -239,7 +221,6 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
                 </div>
               </div>
 
-              {/* Availability Section */}
               <div className="space-y-3">
                 <label className="text-sm font-medium flex items-center gap-2">
                   <Clock size={16} className="text-tutorblue-500" />

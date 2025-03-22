@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { toast } from "sonner";
 import { UserProfile } from './types';
@@ -56,25 +57,52 @@ export const getCurrentUser = async () => {
 
 export const updateUserProfile = async (profile: Partial<UserProfile>) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (!user) throw new Error('No user logged in');
+    if (authError) {
+      console.error('Auth error checking user:', authError);
+      toast.error('Authentication error: ' + authError.message);
+      return false;
+    }
+    
+    if (!user) {
+      console.error('No authenticated user found');
+      toast.error('No user logged in');
+      return false;
+    }
+    
+    console.log('Updating profile for user:', user.id);
+    console.log('Profile data to update:', profile);
+    
+    // Format the data properly for Supabase
+    const profileData = {
+      id: user.id,
+      email: profile.email,
+      role: profile.role || 'learner',
+      subjects: profile.subjects || [],
+      availability: profile.availability || [],
+      bio: profile.bio || '',
+      hourly_rate: profile.hourlyRate || 0,
+      updated_at: new Date().toISOString(),
+    };
+    
+    console.log('Formatted profile data:', profileData);
     
     const { error } = await supabase
       .from('profiles')
-      .upsert({
-        id: user.id,
-        ...profile,
-        updated_at: new Date().toISOString(),
-      });
+      .upsert(profileData);
       
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating profile in Supabase:', error);
+      toast.error('Failed to update profile: ' + error.message);
+      return false;
+    }
     
     toast.success('Profile updated successfully');
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating profile:', error);
-    toast.error('Failed to update profile');
+    toast.error('Failed to update profile: ' + (error.message || 'Unknown error'));
     return false;
   }
 };
