@@ -22,21 +22,21 @@ BEGIN
   -- Set up Row Level Security
   ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
-  -- Create policies
+  -- Create policies with optimized query performance using subqueries
   DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
   CREATE POLICY "Users can view their own profile"
     ON profiles FOR SELECT
-    USING (auth.uid() = id);
+    USING (id = (SELECT auth.uid())); -- Optimized with subquery
 
   DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
   CREATE POLICY "Users can insert their own profile"
     ON profiles FOR INSERT
-    WITH CHECK (auth.uid() = id);
+    WITH CHECK (id = (SELECT auth.uid())); -- Optimized with subquery
 
   DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
   CREATE POLICY "Users can update their own profile"
     ON profiles FOR UPDATE
-    USING (auth.uid() = id);
+    USING (id = (SELECT auth.uid())); -- Optimized with subquery
 END;
 $$;
 
@@ -63,7 +63,7 @@ BEGIN
   -- Set up Row Level Security
   ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;
 
-  -- Create policies
+  -- Create policies with optimized query performance
   DROP POLICY IF EXISTS "Quizzes are viewable by everyone" ON quizzes;
   CREATE POLICY "Quizzes are viewable by everyone"
     ON quizzes FOR SELECT
@@ -72,12 +72,12 @@ BEGIN
   DROP POLICY IF EXISTS "Authenticated users can create quizzes" ON quizzes;
   CREATE POLICY "Authenticated users can create quizzes"
     ON quizzes FOR INSERT
-    WITH CHECK (auth.uid() IS NOT NULL);
+    WITH CHECK ((SELECT auth.uid()) IS NOT NULL); -- Optimized with subquery
 
   DROP POLICY IF EXISTS "Users can update their own quizzes" ON quizzes;
   CREATE POLICY "Users can update their own quizzes"
     ON quizzes FOR UPDATE
-    USING (auth.uid() = created_by);
+    USING (created_by = (SELECT auth.uid())); -- Optimized with subquery
 END;
 $$;
 
@@ -104,20 +104,20 @@ BEGIN
   -- Set up Row Level Security
   ALTER TABLE quiz_results ENABLE ROW LEVEL SECURITY;
 
-  -- Create policies
+  -- Create policies with optimized query performance
   DROP POLICY IF EXISTS "Users can view their own quiz results" ON quiz_results;
   CREATE POLICY "Users can view their own quiz results"
     ON quiz_results FOR SELECT
-    USING (auth.uid() = user_id);
+    USING (user_id = (SELECT auth.uid())); -- Optimized with subquery
 
   DROP POLICY IF EXISTS "Users can insert their own quiz results" ON quiz_results;
   CREATE POLICY "Users can insert their own quiz results"
     ON quiz_results FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK (user_id = (SELECT auth.uid())); -- Optimized with subquery
 
   DROP POLICY IF EXISTS "Users can update their own quiz results" ON quiz_results;
   CREATE POLICY "Users can update their own quiz results"
     ON quiz_results FOR UPDATE
-    USING (auth.uid() = user_id);
+    USING (user_id = (SELECT auth.uid())); -- Optimized with subquery
 END;
 $$;
