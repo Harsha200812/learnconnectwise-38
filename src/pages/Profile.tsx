@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -71,11 +72,22 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) return;
+    if (!user) {
+      toast.error('Please sign in to update your profile');
+      navigate('/login');
+      return;
+    }
     
     setIsSaving(true);
     
     try {
+      // Check auth state first
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session) {
+        console.log('No active session, trying demo mode');
+      }
+      
       const updatedUser: Partial<UserProfile> = {
         id: user.id,
         email: user.email,

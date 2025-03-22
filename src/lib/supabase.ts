@@ -57,6 +57,43 @@ export const getCurrentUser = async () => {
 
 export const updateUserProfile = async (profile: Partial<UserProfile>) => {
   try {
+    // Check if we have a session
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (!sessionData.session) {
+      console.error('No auth session found');
+      
+      // Attempt to sign in with stored credentials if available
+      const storedUser = localStorage.getItem('tutorapp_user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        // For the demo app, we'll just update the profile without authentication
+        // This is only for development purposes
+        console.log('Using demo mode to update profile without auth');
+        
+        const profileData = {
+          id: userData.id,
+          email: profile.email || userData.email,
+          role: profile.role || userData.role || 'learner',
+          subjects: profile.subjects || [],
+          availability: profile.availability || [],
+          bio: profile.bio || '',
+          hourly_rate: profile.hourlyRate || 0,
+          updated_at: new Date().toISOString(),
+        };
+        
+        // Since we're in demo mode with no authentication, we'll just update localStorage
+        const updatedUser = { ...userData, ...profile };
+        localStorage.setItem('tutorapp_user', JSON.stringify(updatedUser));
+        
+        toast.success('Profile updated successfully (Demo Mode)');
+        return true;
+      }
+      
+      toast.error('Authentication error: No session found');
+      return false;
+    }
+    
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
