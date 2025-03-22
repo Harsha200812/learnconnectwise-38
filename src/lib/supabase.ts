@@ -38,7 +38,7 @@ export const getCurrentUser = async () => {
         
       if (profile) {
         // Create a complete user profile by combining auth and profile data
-        const userProfile = {
+        const userProfile: UserProfile = {
           id: user.id,
           email: user.email || '',
           role: profile.role || 'learner',
@@ -74,11 +74,21 @@ export const getCurrentUser = async () => {
 
 export const updateUserProfile = async (profile: Partial<UserProfile>) => {
   try {
+    console.log('Starting profile update process...');
+    
     // Check if we have a session
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Error checking session:', sessionError);
+      toast.error('Session error: ' + sessionError.message);
+      return false;
+    }
+    
+    console.log('Session check result:', sessionData.session ? 'Session exists' : 'No session');
     
     if (!sessionData.session) {
-      console.error('No auth session found');
+      console.warn('No auth session found - will try to update in demo mode');
       
       // Attempt to sign in with stored credentials if available
       const storedUser = localStorage.getItem('tutorapp_user');
@@ -88,22 +98,12 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
         // This is only for development purposes
         console.log('Using demo mode to update profile without auth');
         
-        const profileData = {
-          id: userData.id,
-          email: profile.email || userData.email,
-          role: profile.role || userData.role || 'learner',
-          subjects: profile.subjects || [],
-          availability: profile.availability || [],
-          bio: profile.bio || '',
-          hourly_rate: profile.hourlyRate || 0,
-          updated_at: new Date().toISOString(),
-        };
-        
         // Since we're in demo mode with no authentication, we'll just update localStorage
         const updatedUser = { ...userData, ...profile };
         localStorage.setItem('tutorapp_user', JSON.stringify(updatedUser));
         
-        toast.success('Profile updated successfully (Demo Mode)');
+        toast.success('Profile updated in demo mode (localStorage only)');
+        console.log('Profile updated in localStorage:', updatedUser);
         return true;
       }
       
@@ -111,6 +111,7 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
       return false;
     }
     
+    // If we have a session, proceed with the database update
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {
@@ -140,17 +141,66 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
       updated_at: new Date().toISOString(),
     };
     
-    console.log('Formatted profile data:', profileData);
+    console.log('Formatted profile data for Supabase:', profileData);
     
-    const { error } = await supabase
+    // First check if the profile exists
+    const { data: existingProfile, error: checkError } = await supabase
       .from('profiles')
-      .upsert(profileData);
+      .select('id')
+      .eq('id', user.id)
+      .single();
       
-    if (error) {
-      console.error('Error updating profile in Supabase:', error);
-      toast.error('Failed to update profile: ' + error.message);
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking if profile exists:', checkError);
+    }
+    
+    console.log('Profile exists check:', existingProfile ? 'Yes' : 'No');
+    
+    let updateResult;
+    
+    // If profile doesn't exist, we need to include created_at
+    if (!existingProfile) {
+      console.log('Creating new profile record');
+      const newProfileData = {
+        ...profileData,
+        created_at: new Date().toISOString()
+      };
+      
+      updateResult = await supabase
+        .from('profiles')
+        .insert(newProfileData);
+    } else {
+      console.log('Updating existing profile record');
+      updateResult = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id);
+    }
+    
+    const { error: upsertError } = updateResult;
+      
+    if (upsertError) {
+      console.error('Error updating profile in Supabase:', upsertError);
+      toast.error('Failed to update profile: ' + upsertError.message);
       return false;
     }
+    
+    console.log('Profile updated successfully in database');
+    
+    // Update localStorage to match what's in the database
+    const updatedUserProfile: UserProfile = {
+      id: user.id,
+      email: user.email || '',
+      role: profileData.role as UserRole,
+      subjects: profileData.subjects || [],
+      availability: profileData.availability || [],
+      bio: profileData.bio || '',
+      hourlyRate: profileData.hourly_rate || 0,
+      created_at: existingProfile ? undefined : profileData.created_at,
+    };
+    
+    localStorage.setItem('tutorapp_user', JSON.stringify(updatedUserProfile));
+    console.log('LocalStorage updated with new profile data');
     
     toast.success('Profile updated successfully');
     return true;

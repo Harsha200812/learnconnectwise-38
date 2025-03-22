@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
 import { supabase, initializeDatabase, getCurrentUser } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { SAMPLE_TUTORS, UserProfile } from '@/lib/types';
+import { SAMPLE_TUTORS, UserProfile, UserRole } from '@/lib/types';
 
 interface LoginProps {
   setUser: (user: UserProfile) => void;
@@ -41,10 +41,13 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         throw error;
       }
       
+      console.log('Successfully signed in with Supabase auth', authData.user.id);
+      
       // Use the getCurrentUser function to get complete user profile
       const userProfile = await getCurrentUser();
       
       if (userProfile) {
+        console.log('Retrieved complete user profile', userProfile);
         // Update app state
         setUser(userProfile);
         
@@ -55,6 +58,8 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         navigate('/profile');
         return;
       }
+      
+      console.log('getCurrentUser failed, falling back to manual profile creation');
       
       // Fallback to sample data or create new profile if getCurrentUser fails
       const { data: profileData, error: profileError } = await supabase
@@ -70,11 +75,12 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
       let fallbackProfile: UserProfile;
       
       if (profileData) {
+        console.log('Found existing profile data', profileData);
         // Use profile from database
         fallbackProfile = {
           id: authData.user.id,
           email: authData.user.email || email,
-          role: profileData.role || 'learner',
+          role: profileData.role as UserRole || 'learner',
           subjects: profileData.subjects || [],
           availability: profileData.availability || [],
           bio: profileData.bio,
@@ -82,20 +88,23 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
           created_at: profileData.created_at || new Date().toISOString(),
         };
       } else {
+        console.log('No profile found, creating new one');
         // Fallback to sample data or create new profile
         const sampleTutor = SAMPLE_TUTORS.find(t => t.email === email);
         
         fallbackProfile = sampleTutor || {
           id: authData.user.id,
           email,
-          role: 'learner',
+          role: 'learner' as UserRole,
           subjects: [],
           availability: [],
           created_at: new Date().toISOString(),
         };
         
+        console.log('Saving new profile to Supabase', fallbackProfile);
+        
         // Save this profile to Supabase for future logins
-        await supabase
+        const { error: upsertError } = await supabase
           .from('profiles')
           .upsert({
             id: authData.user.id,
@@ -108,10 +117,15 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
+          
+        if (upsertError) {
+          console.error('Error creating new profile:', upsertError);
+        }
       }
       
       // Store in localStorage
       localStorage.setItem('tutorapp_user', JSON.stringify(fallbackProfile));
+      console.log('Saved user profile to localStorage', fallbackProfile);
       
       // Update app state
       setUser(fallbackProfile);
