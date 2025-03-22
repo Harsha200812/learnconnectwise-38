@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, SUBJECTS } from '@/lib/types';
 import { Quiz, QuizResult } from '@/lib/quiz-types';
-import { getQuizzesForUser, getUserQuizResults } from '@/lib/quiz-service';
-import { BookOpen, Award, Clock, Trophy, AlertCircle, BarChart3 } from 'lucide-react';
+import { getQuizzesForUser, getUserQuizResults, createAIQuiz } from '@/lib/quiz-service';
+import { BookOpen, Award, Clock, Trophy, AlertCircle, BarChart3, Plus, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface QuizzesProps {
   user: UserProfile | null;
@@ -21,6 +22,9 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [userResults, setUserResults] = useState<QuizResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
 
   useEffect(() => {
     if (!user) {
@@ -62,6 +66,42 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
     return userResults.some(result => result.quizId === quizId && result.completed);
   };
 
+  // Generate a new AI quiz
+  const handleGenerateAIQuiz = async () => {
+    if (!selectedSubject) {
+      toast.error('Please select a subject');
+      return;
+    }
+    
+    setGeneratingQuiz(true);
+    toast.info('Generating your AI quiz...');
+    
+    try {
+      const newQuiz = await createAIQuiz(selectedSubject, selectedDifficulty);
+      
+      // Add the new quiz to the list
+      setQuizzes(prev => [newQuiz, ...prev]);
+      
+      toast.success('Your AI quiz is ready!');
+      
+      // Automatically navigate to the new quiz
+      navigate(`/quiz/${newQuiz.id}`);
+    } catch (error) {
+      console.error('Error generating AI quiz:', error);
+      toast.error('Failed to generate AI quiz');
+    } finally {
+      setGeneratingQuiz(false);
+    }
+  };
+
+  // Get user's preferred subjects or a subset of all subjects
+  const getAvailableSubjects = (): string[] => {
+    if (user?.subjects && user.subjects.length > 0) {
+      return user.subjects;
+    }
+    return SUBJECTS.slice(0, 5); // Return first 5 subjects as a fallback
+  };
+
   if (loading) {
     return (
       <div className="page-container max-w-5xl mx-auto py-8 px-4">
@@ -87,13 +127,82 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
           </Badge>
         </div>
       </div>
+      
+      {/* AI Quiz Generator */}
+      <Card className="mb-8 border-dashed border-2 border-tutorblue-200 bg-tutorblue-50/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center text-tutorblue-700">
+            <Sparkles className="h-5 w-5 mr-2 text-tutorblue-500" />
+            Generate AI Quiz
+          </CardTitle>
+          <CardDescription>
+            Create a custom quiz with AI-generated questions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Subject</label>
+              <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getAvailableSubjects().map(subject => (
+                    <SelectItem key={subject} value={subject}>
+                      {subject}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-1 block">Difficulty</label>
+              <Select 
+                value={selectedDifficulty} 
+                onValueChange={(value: string) => setSelectedDifficulty(value as 'easy' | 'medium' | 'hard')}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex items-end">
+              <Button 
+                onClick={handleGenerateAIQuiz} 
+                disabled={generatingQuiz || !selectedSubject}
+                className="w-full bg-tutorblue-500 hover:bg-tutorblue-600"
+              >
+                {generatingQuiz ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Generate Quiz
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {quizzes.length === 0 ? (
         <Alert className="bg-amber-50 border-amber-200 mb-6">
           <AlertCircle className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-800">No quizzes available</AlertTitle>
           <AlertDescription className="text-amber-700">
-            We couldn't find any quizzes matching your interests. Please update your profile with subjects you're interested in.
+            We couldn't find any quizzes matching your interests. Please update your profile with subjects you're interested in or generate a custom AI quiz.
           </AlertDescription>
         </Alert>
       ) : (
@@ -101,6 +210,7 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
           {quizzes.map((quiz) => {
             const result = getQuizResult(quiz.id);
             const completed = !!result?.completed;
+            const isAIGenerated = quiz.id.startsWith('ai-');
             
             return (
               <Card key={quiz.id} className="overflow-hidden hover:shadow-md transition-shadow">
@@ -109,9 +219,17 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
                     <Badge variant="outline" className="mb-2 bg-tutorblue-50 text-tutorblue-600 border-tutorblue-200">
                       {quiz.subject}
                     </Badge>
-                    <Badge variant={quiz.difficulty === 'easy' ? 'outline' : quiz.difficulty === 'medium' ? 'secondary' : 'default'}>
-                      {quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1)}
-                    </Badge>
+                    <div className="flex gap-2">
+                      {isAIGenerated && (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          AI
+                        </Badge>
+                      )}
+                      <Badge variant={quiz.difficulty === 'easy' ? 'outline' : quiz.difficulty === 'medium' ? 'secondary' : 'default'}>
+                        {quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1)}
+                      </Badge>
+                    </div>
                   </div>
                   <CardTitle className="text-xl">{quiz.title}</CardTitle>
                   <CardDescription className="flex items-center gap-1 mt-1">

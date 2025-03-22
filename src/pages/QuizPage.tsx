@@ -7,10 +7,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 import { UserProfile } from '@/lib/types';
 import { Quiz, QuizQuestion } from '@/lib/quiz-types';
 import { getQuizById, calculateQuizScore, saveQuizResult } from '@/lib/quiz-service';
-import { Clock, AlertCircle, ChevronLeft, ChevronRight, Check, HelpCircle } from 'lucide-react';
+import { Clock, AlertCircle, ChevronLeft, ChevronRight, Check, HelpCircle, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface QuizPageProps {
@@ -39,6 +40,23 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
     
     // Load quiz data
     if (quizId) {
+      // Check if this is an AI-generated quiz (stored in session storage)
+      if (quizId.startsWith('ai-')) {
+        try {
+          const aiQuizJson = sessionStorage.getItem(`quiz_${quizId}`);
+          if (aiQuizJson) {
+            const aiQuiz = JSON.parse(aiQuizJson);
+            setQuiz(aiQuiz);
+            setTimeLeft(aiQuiz.timeLimit * 60); // Convert minutes to seconds
+            setQuizStartTime(Date.now());
+            return;
+          }
+        } catch (error) {
+          console.error("Error loading AI quiz from session storage:", error);
+        }
+      }
+      
+      // Otherwise load from sample quizzes
       const quizData = getQuizById(quizId);
       if (quizData) {
         setQuiz(quizData);
@@ -132,6 +150,15 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
     
     toast.success('Quiz submitted successfully!');
     
+    // If this is an AI-generated quiz, save it to session storage
+    if (quiz.id.startsWith('ai-')) {
+      try {
+        sessionStorage.setItem(`quiz_${quiz.id}`, JSON.stringify(quiz));
+      } catch (error) {
+        console.error("Error saving AI quiz to session storage:", error);
+      }
+    }
+    
     // Navigate to result page
     navigate(`/quiz-result/${quiz.id}`);
   };
@@ -158,6 +185,11 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
     return !!userAnswers[currentQuestion.id];
   };
 
+  // Check if quiz is AI-generated
+  const isAIGenerated = (): boolean => {
+    return quiz?.id.startsWith('ai-') || false;
+  };
+
   if (!quiz) {
     return (
       <div className="page-container max-w-3xl mx-auto py-8 px-4">
@@ -173,7 +205,15 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
   return (
     <div className="page-container max-w-3xl mx-auto py-8 px-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{quiz.title}</h1>
+        <div className="flex justify-between items-start">
+          <h1 className="text-2xl font-bold text-gray-900">{quiz.title}</h1>
+          {isAIGenerated() && (
+            <Badge variant="outline" className="bg-purple-50 text-purple-600 border-purple-200">
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI Generated
+            </Badge>
+          )}
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-2 gap-2">
           <p className="text-gray-600">
             Question {currentQuestionIndex + 1} of {quiz.questions.length}
