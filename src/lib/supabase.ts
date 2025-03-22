@@ -79,42 +79,74 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
   }
 };
 
+// Manually create the profiles table if it doesn't exist
+export const manuallyCreateProfilesTable = async () => {
+  try {
+    // Check if the profiles table exists by trying to select from it
+    const { error } = await supabase.from('profiles').select('id').limit(1);
+
+    if (error && error.code === 'PGRST116') {
+      // Table doesn't exist or is empty, let's create it
+      const { error: createError } = await supabase.rpc('create_profiles_table');
+      
+      if (createError) {
+        // If the RPC function doesn't exist, create the table directly
+        const { error: directCreateError } = await supabase.query(`
+          CREATE TABLE IF NOT EXISTS public.profiles (
+            id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+            email TEXT,
+            role TEXT CHECK (role IN ('tutor', 'learner')),
+            subjects TEXT[],
+            availability TEXT[],
+            bio TEXT,
+            hourly_rate INTEGER,
+            created_at TIMESTAMPTZ DEFAULT now(),
+            updated_at TIMESTAMPTZ DEFAULT now()
+          );
+        `);
+        
+        if (directCreateError) {
+          console.error("Failed to create profiles table directly:", directCreateError);
+          return false;
+        }
+      }
+      
+      console.log("Profiles table created successfully");
+      return true;
+    }
+    
+    return true; // Table already exists
+  } catch (error) {
+    console.error('Error creating profiles table:', error);
+    return false;
+  }
+};
+
 // Check if tables exist, create them if they don't
 export const initializeDatabase = async () => {
   try {
-    // First check if the profiles table exists
-    const { error: profilesError } = await supabase
-      .from('profiles')
-      .select('id')
-      .limit(1);
+    // First try the manual table creation approach
+    const profilesCreated = await manuallyCreateProfilesTable();
+    
+    if (!profilesCreated) {
+      console.warn("Could not create profiles table manually, trying RPC method");
       
-    // Create profiles table if it doesn't exist
-    if (profilesError && profilesError.code === 'PGRST104') {
-      // Create profiles table with RLS policies
-      await supabase.rpc('init_profiles_table');
+      // Try the RPC method as fallback
+      const { error: profilesError } = await supabase.rpc('init_profiles_table');
+      
+      if (profilesError) {
+        console.error("Failed to initialize profiles table:", profilesError);
+      }
     }
     
-    // Check if quizzes table exists
-    const { error: quizzesError } = await supabase
-      .from('quizzes')
-      .select('id')
-      .limit(1);
-      
-    // Create quizzes table if it doesn't exist
+    // For quizzes and quiz_results tables, keep the existing approach
+    const { error: quizzesError } = await supabase.from('quizzes').select('id').limit(1);
     if (quizzesError && quizzesError.code === 'PGRST104') {
-      // Create quizzes table with RLS policies
       await supabase.rpc('init_quizzes_table');
     }
     
-    // Check if quiz_results table exists
-    const { error: resultsError } = await supabase
-      .from('quiz_results')
-      .select('id')
-      .limit(1);
-      
-    // Create quiz_results table if it doesn't exist
+    const { error: resultsError } = await supabase.from('quiz_results').select('id').limit(1);
     if (resultsError && resultsError.code === 'PGRST104') {
-      // Create quiz_results table with RLS policies
       await supabase.rpc('init_quiz_results_table');
     }
     

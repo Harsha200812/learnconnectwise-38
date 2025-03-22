@@ -1,8 +1,8 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
-import { supabase } from '@/lib/supabase';
+import { supabase, initializeDatabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { SAMPLE_TUTORS, UserProfile } from '@/lib/types';
 
@@ -13,12 +13,24 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ setUser }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initialize database on component mount
+  useEffect(() => {
+    const init = async () => {
+      await initializeDatabase();
+    };
+    
+    init();
+  }, []);
 
   const handleLogin = async (data: any) => {
     setIsSubmitting(true);
     
     try {
       const { email, password } = data;
+      
+      // Initialize database tables if they don't exist yet
+      await initializeDatabase();
       
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
@@ -76,6 +88,8 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
             role: userProfile.role,
             subjects: userProfile.subjects,
             availability: userProfile.availability,
+            bio: userProfile.bio || '',
+            hourly_rate: userProfile.hourlyRate || 0,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
@@ -95,6 +109,7 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
     } catch (error: any) {
       console.error('Login error:', error);
       
+      // Create a demo user account for testing purposes
       const newUser: UserProfile = {
         id: 'demo-user',
         email: data.email,

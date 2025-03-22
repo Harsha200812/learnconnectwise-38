@@ -1,9 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
 import { UserProfile } from '@/lib/types';
-import { supabase, updateUserProfile } from '@/lib/supabase';
+import { supabase, updateUserProfile, initializeDatabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface RegisterProps {
@@ -13,6 +13,15 @@ interface RegisterProps {
 const Register: React.FC<RegisterProps> = ({ setUser }) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initialize database on component mount
+  useEffect(() => {
+    const init = async () => {
+      await initializeDatabase();
+    };
+    
+    init();
+  }, []);
 
   const handleRegister = async (data: any) => {
     setIsSubmitting(true);
@@ -20,6 +29,9 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
     try {
       // Destructure form data
       const { email, password, role, subjects, availability } = data;
+      
+      // Initialize database tables if they don't exist yet
+      await initializeDatabase();
       
       // Sign up with Supabase
       const { data: authData, error } = await supabase.auth.signUp({
@@ -39,7 +51,7 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
       const newUser: UserProfile = {
         id: authData.user.id,
         email,
-        role,
+        role: role || 'learner',
         subjects: subjects || [],
         availability: availability || [],
         created_at: new Date().toISOString(),
@@ -51,16 +63,18 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
         .upsert({
           id: authData.user.id,
           email,
-          role,
-          subjects,
-          availability,
+          role: role || 'learner',
+          subjects: subjects || [],
+          availability: availability || [],
+          bio: '',
+          hourly_rate: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
         
       if (profileError) {
         console.error('Error saving profile:', profileError);
-        toast.error('Account created but profile data not saved completely');
+        toast.error('Account created but profile data not saved completely. Error: ' + profileError.message);
       }
       
       // Store in localStorage for app persistence
