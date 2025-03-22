@@ -4,12 +4,12 @@ import { toast } from "sonner";
 import { UserProfile } from './types';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder-project.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://onvtudfhfpqlzorfflhr.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9udnR1ZGZoZnBxbHpvcmZmbGhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI2NzcwMjgsImV4cCI6MjA1ODI1MzAyOH0.7cmaodG0QIZbU8-0PKmd8b_fNeIqJbUqP7ILjyY6Ens';
 
 // Log warning but don't crash
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.warn('Supabase URL or Anonymous Key is missing. Using dummy values for development.');
+  console.warn('Using hardcoded Supabase credentials. For production, use environment variables.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
