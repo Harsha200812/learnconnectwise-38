@@ -1,31 +1,67 @@
 
 import { SAMPLE_QUIZZES, Quiz, QuizResult, QuizQuestion } from "./quiz-types";
 import { SUBJECTS, UserProfile } from "./types";
+import { supabase } from "./supabase";
 import { toast } from "sonner";
 
 // Get quizzes based on user interests (subjects)
-export const getQuizzesForUser = (user: UserProfile | null): Quiz[] => {
+export const getQuizzesForUser = async (user: UserProfile | null): Promise<Quiz[]> => {
   if (!user || !user.subjects || user.subjects.length === 0) return SAMPLE_QUIZZES;
   
-  // Filter quizzes that match user's subjects of interest
-  const userSubjects = user.subjects || [];
-  const filteredQuizzes = SAMPLE_QUIZZES.filter(quiz => 
-    userSubjects.includes(quiz.subject)
-  );
-  
-  // If no matches found, return a subset of all quizzes
-  return filteredQuizzes.length > 0 ? filteredQuizzes : SAMPLE_QUIZZES.slice(0, 3);
+  try {
+    // First, check if we have quizzes in Supabase
+    const { data: supabaseQuizzes, error } = await supabase
+      .from('quizzes')
+      .select('*')
+      .in('subject', user.subjects);
+    
+    if (error) throw error;
+    
+    // If we have quizzes in Supabase that match user interests, return those
+    if (supabaseQuizzes && supabaseQuizzes.length > 0) {
+      // Parse the questions JSON field
+      return supabaseQuizzes.map(quiz => ({
+        ...quiz,
+        questions: typeof quiz.questions === 'string' 
+          ? JSON.parse(quiz.questions) 
+          : quiz.questions
+      }));
+    }
+    
+    // If no quizzes found in Supabase, fall back to sample quizzes
+    const userSubjects = user.subjects || [];
+    const filteredQuizzes = SAMPLE_QUIZZES.filter(quiz => 
+      userSubjects.includes(quiz.subject)
+    );
+    
+    // If no matches found in sample quizzes, return a subset of all sample quizzes
+    return filteredQuizzes.length > 0 ? filteredQuizzes : SAMPLE_QUIZZES.slice(0, 3);
+  } catch (error) {
+    console.error("Error fetching quizzes:", error);
+    // Fall back to sample quizzes in case of error
+    return SAMPLE_QUIZZES;
+  }
 };
 
-// Generate AI questions for a subject
+// Generate AI questions for a subject using Supabase Edge Functions
 export const generateAIQuestions = async (subject: string, count: number = 5): Promise<QuizQuestion[]> => {
   try {
     console.log(`Generating ${count} AI questions for ${subject}...`);
     
-    // In a real implementation, this would call an AI API
-    // For now, we'll simulate with a delay and return template-based questions
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Call the Supabase Edge Function to generate questions
+    const { data, error } = await supabase.functions.invoke('generate-quiz-questions', {
+      body: { subject, count }
+    });
     
+    if (error) throw error;
+    
+    console.log(`Generated ${data.questions.length} AI questions for ${subject}`);
+    return data.questions;
+  } catch (error) {
+    console.error("Error generating AI questions:", error);
+    toast.error("Failed to generate AI questions");
+    
+    // Fall back to the template-based questions
     const questions: QuizQuestion[] = [];
     const templates = [
       { q: `What is the main principle of ${subject}?`, 
@@ -54,40 +90,82 @@ export const generateAIQuestions = async (subject: string, count: number = 5): P
         question: template.q,
         options: template.a,
         correctAnswer: template.a[correctIndex],
-        explanation: `This is an AI-generated explanation for the ${subject} question.`
+        explanation: `This is a fallback explanation for the ${subject} question.`
       });
     }
     
-    console.log(`Generated ${questions.length} AI questions for ${subject}`);
     return questions;
-  } catch (error) {
-    console.error("Error generating AI questions:", error);
-    toast.error("Failed to generate AI questions");
-    return [];
   }
 };
 
-// Create a new quiz with AI-generated questions
+// Create a new quiz with AI-generated questions and save it to Supabase
 export const createAIQuiz = async (subject: string, difficulty: 'easy' | 'medium' | 'hard' = 'medium'): Promise<Quiz> => {
-  // Generate questions using AI
-  const questions = await generateAIQuestions(subject, 5);
-  
-  // Create a new quiz
-  const newQuiz: Quiz = {
-    id: `ai-${subject}-${Date.now()}`,
-    title: `AI-Generated ${subject} Quiz`,
-    subject: subject,
-    questions: questions,
-    difficulty: difficulty,
-    timeLimit: difficulty === 'easy' ? 10 : difficulty === 'medium' ? 15 : 20
-  };
-  
-  return newQuiz;
+  try {
+    // Generate questions using AI
+    const questions = await generateAIQuestions(subject, 5);
+    
+    // Create a new quiz
+    const newQuiz: Quiz = {
+      id: `ai-${subject}-${Date.now()}`,
+      title: `AI-Generated ${subject} Quiz`,
+      subject: subject,
+      questions: questions,
+      difficulty: difficulty,
+      timeLimit: difficulty === 'easy' ? 10 : difficulty === 'medium' ? 15 : 20
+    };
+    
+    // Save the quiz to Supabase
+    const { error } = await supabase
+      .from('quizzes')
+      .insert({
+        id: newQuiz.id,
+        title: newQuiz.title,
+        subject: newQuiz.subject,
+        questions: JSON.stringify(newQuiz.questions),
+        difficulty: newQuiz.difficulty,
+        timeLimit: newQuiz.timeLimit,
+        created_at: new Date().toISOString()
+      });
+    
+    if (error) throw error;
+    
+    return newQuiz;
+  } catch (error) {
+    console.error("Error creating AI quiz:", error);
+    toast.error("Failed to create AI quiz");
+    throw error;
+  }
 };
 
-// Get a specific quiz by ID
-export const getQuizById = (quizId: string): Quiz | undefined => {
-  return SAMPLE_QUIZZES.find(quiz => quiz.id === quizId);
+// Get a specific quiz by ID from Supabase or fallback to sample quizzes
+export const getQuizById = async (quizId: string): Promise<Quiz | undefined> => {
+  try {
+    // Try to get the quiz from Supabase first
+    const { data, error } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', quizId)
+      .single();
+    
+    if (error) {
+      // If not found in Supabase, check sample quizzes
+      const sampleQuiz = SAMPLE_QUIZZES.find(quiz => quiz.id === quizId);
+      if (sampleQuiz) return sampleQuiz;
+      throw error;
+    }
+    
+    // Parse the questions JSON
+    return {
+      ...data,
+      questions: typeof data.questions === 'string' 
+        ? JSON.parse(data.questions) 
+        : data.questions
+    };
+  } catch (error) {
+    console.error("Error fetching quiz:", error);
+    // Fallback to sample quizzes
+    return SAMPLE_QUIZZES.find(quiz => quiz.id === quizId);
+  }
 };
 
 // Calculate score for a quiz
@@ -106,75 +184,156 @@ export const calculateQuizScore = (
   return Math.round((correctAnswers / quiz.questions.length) * 100);
 };
 
-// Save quiz result to localStorage
-export const saveQuizResult = (
+// Save quiz result to Supabase
+export const saveQuizResult = async (
   userId: string,
   quizId: string,
   score: number,
   totalQuestions: number,
   timeTaken: number
-): QuizResult => {
-  const result: QuizResult = {
-    id: Date.now().toString(),
-    userId,
-    quizId,
-    score,
-    totalQuestions,
-    timeTaken,
-    completed: true,
-    rewardClaimed: false,
-    createdAt: new Date().toISOString()
-  };
-  
-  // Get existing results
-  const existingResultsJson = localStorage.getItem('quiz_results');
-  const existingResults: QuizResult[] = existingResultsJson 
-    ? JSON.parse(existingResultsJson) 
-    : [];
-  
-  // Add new result
-  const updatedResults = [...existingResults, result];
-  localStorage.setItem('quiz_results', JSON.stringify(updatedResults));
-  
-  return result;
-};
-
-// Get all quiz results for a user
-export const getUserQuizResults = (userId: string): QuizResult[] => {
-  const resultsJson = localStorage.getItem('quiz_results');
-  if (!resultsJson) return [];
-  
-  const allResults: QuizResult[] = JSON.parse(resultsJson);
-  return allResults.filter(result => result.userId === userId);
-};
-
-// Claim blockchain reward
-export const claimBlockchainReward = async (resultId: string): Promise<boolean> => {
+): Promise<QuizResult> => {
   try {
-    // In a real implementation, this would interact with a blockchain
-    // For now, we'll simulate success and update the local storage
+    const result: QuizResult = {
+      id: Date.now().toString(),
+      userId,
+      quizId,
+      score,
+      totalQuestions,
+      timeTaken,
+      completed: true,
+      rewardClaimed: false,
+      createdAt: new Date().toISOString()
+    };
     
-    const resultsJson = localStorage.getItem('quiz_results');
-    if (!resultsJson) return false;
+    // Save to Supabase
+    const { error } = await supabase
+      .from('quiz_results')
+      .insert({
+        id: result.id,
+        user_id: result.userId,
+        quiz_id: result.quizId,
+        score: result.score,
+        total_questions: result.totalQuestions,
+        time_taken: result.timeTaken,
+        completed: result.completed,
+        reward_claimed: result.rewardClaimed,
+        created_at: result.createdAt
+      });
     
-    const allResults: QuizResult[] = JSON.parse(resultsJson);
-    const updatedResults = allResults.map(result => 
-      result.id === resultId 
-        ? { ...result, rewardClaimed: true } 
-        : result
-    );
+    if (error) throw error;
     
+    return result;
+  } catch (error) {
+    console.error("Error saving quiz result:", error);
+    toast.error("Failed to save quiz result");
+    
+    // Fallback to localStorage if Supabase fails
+    const existingResultsJson = localStorage.getItem('quiz_results');
+    const existingResults: QuizResult[] = existingResultsJson 
+      ? JSON.parse(existingResultsJson) 
+      : [];
+    
+    const result: QuizResult = {
+      id: Date.now().toString(),
+      userId,
+      quizId,
+      score,
+      totalQuestions,
+      timeTaken,
+      completed: true,
+      rewardClaimed: false,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Add new result to localStorage
+    const updatedResults = [...existingResults, result];
     localStorage.setItem('quiz_results', JSON.stringify(updatedResults));
     
-    // Simulate blockchain transaction delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    return result;
+  }
+};
+
+// Get all quiz results for a user from Supabase
+export const getUserQuizResults = async (userId: string): Promise<QuizResult[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('quiz_results')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
     
-    toast.success("Blockchain reward claimed successfully!");
-    return true;
+    if (error) throw error;
+    
+    // Map to our QuizResult type
+    return data.map(item => ({
+      id: item.id,
+      userId: item.user_id,
+      quizId: item.quiz_id,
+      score: item.score,
+      totalQuestions: item.total_questions,
+      timeTaken: item.time_taken,
+      completed: item.completed,
+      rewardClaimed: item.reward_claimed,
+      createdAt: item.created_at
+    }));
+  } catch (error) {
+    console.error("Error fetching quiz results:", error);
+    
+    // Fallback to localStorage
+    const resultsJson = localStorage.getItem('quiz_results');
+    if (!resultsJson) return [];
+    
+    const allResults: QuizResult[] = JSON.parse(resultsJson);
+    return allResults.filter(result => result.userId === userId);
+  }
+};
+
+// Claim blockchain reward using Supabase Edge Function
+export const claimBlockchainReward = async (resultId: string): Promise<boolean> => {
+  try {
+    // Call the Supabase Edge Function to claim reward
+    const { data, error } = await supabase.functions.invoke('claim-blockchain-reward', {
+      body: { resultId }
+    });
+    
+    if (error) throw error;
+    
+    if (data.success) {
+      // Update local record
+      const { error: updateError } = await supabase
+        .from('quiz_results')
+        .update({ reward_claimed: true })
+        .eq('id', resultId);
+      
+      if (updateError) throw updateError;
+      
+      toast.success("Blockchain reward claimed successfully!");
+      return true;
+    } else {
+      throw new Error(data.message || "Failed to claim reward");
+    }
   } catch (error) {
     console.error("Error claiming reward:", error);
     toast.error("Failed to claim reward. Please try again.");
-    return false;
+    
+    // Fallback to localStorage update if Supabase fails
+    try {
+      const resultsJson = localStorage.getItem('quiz_results');
+      if (!resultsJson) return false;
+      
+      const allResults: QuizResult[] = JSON.parse(resultsJson);
+      const updatedResults = allResults.map(result => 
+        result.id === resultId 
+          ? { ...result, rewardClaimed: true } 
+          : result
+      );
+      
+      localStorage.setItem('quiz_results', JSON.stringify(updatedResults));
+      return true;
+    } catch (e) {
+      console.error("Error updating localStorage:", e);
+      return false;
+    }
   }
 };
 

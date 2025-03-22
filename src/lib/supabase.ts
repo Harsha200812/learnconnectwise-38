@@ -1,91 +1,130 @@
 
-// Note: This file is a placeholder for Supabase integration
-// Users should connect their Supabase project through Lovable's native integration
-
+import { createClient } from '@supabase/supabase-js';
 import { toast } from "sonner";
+import { UserProfile } from './types';
 
-// Define types for Supabase data
-export interface User {
-  id: string;
-  email: string;
-  role: 'tutor' | 'learner';
-  subjects: string[];
-  availability: string[];
-  created_at: string;
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase URL or Anonymous Key is missing');
 }
 
-// Mock functions to simulate Supabase functionality
-export const supabase = {
-  auth: {
-    signUp: async ({ email, password }: { email: string; password: string }) => {
-      // This would connect to Supabase in a real implementation
-      console.log('Sign up called with:', email);
-      return { data: { user: { id: 'mock-id', email } }, error: null };
-    },
-    signIn: async ({ email, password }: { email: string; password: string }) => {
-      // This would connect to Supabase in a real implementation
-      console.log('Sign in called with:', email);
-      return { data: { user: { id: 'mock-id', email } }, error: null };
-    },
-    signOut: async () => {
-      // This would connect to Supabase in a real implementation
-      console.log('Sign out called');
-      return { error: null };
-    },
-    getUser: async () => {
-      // Mock getting the current user
-      const storedUser = localStorage.getItem('tutorapp_user');
-      if (storedUser) {
-        return { data: { user: JSON.parse(storedUser) }, error: null };
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// User related functions
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) throw error;
+    
+    if (user) {
+      // Get the user profile from the profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (profileError && profileError.code !== 'PGRST116') {
+        // PGRST116 is the error code for "no rows found"
+        console.error('Error fetching profile:', profileError);
       }
-      return { data: { user: null }, error: null };
-    },
-  },
-  from: (table: string) => ({
-    select: () => ({
-      eq: (column: string, value: any) => ({
-        single: async () => {
-          // Mock fetching a single record
-          if (table === 'profiles') {
-            const storedUser = localStorage.getItem('tutorapp_user');
-            if (storedUser) {
-              const user = JSON.parse(storedUser);
-              return { data: user, error: null };
-            }
-          }
-          return { data: null, error: null };
-        },
-        order: () => ({
-          data: [], // Mock empty data array
-          error: null,
-        }),
-      }),
-      order: () => ({
-        data: [], // Mock empty data array
-        error: null,
-      }),
-    }),
-    insert: async (record: any) => {
-      // Mock inserting a record
-      console.log(`Inserting into ${table}:`, record);
-      if (table === 'profiles') {
-        localStorage.setItem('tutorapp_user', JSON.stringify(record));
-        toast.success('Profile updated successfully');
+        
+      if (profile) {
+        return {
+          id: user.id,
+          email: user.email,
+          ...profile
+        };
       }
-      return { data: record, error: null };
-    },
-    update: async (record: any) => {
-      // Mock updating a record
-      console.log(`Updating in ${table}:`, record);
-      if (table === 'profiles') {
-        const storedUser = localStorage.getItem('tutorapp_user');
-        if (storedUser) {
-          const updatedUser = { ...JSON.parse(storedUser), ...record };
-          localStorage.setItem('tutorapp_user', JSON.stringify(updatedUser));
-          toast.success('Profile updated successfully');
-        }
-      }
-      return { data: record, error: null };
-    },
-  }),
+      
+      // Return basic user if no profile exists
+      return {
+        id: user.id,
+        email: user.email || '',
+        role: 'learner',
+        subjects: [],
+        availability: [],
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+};
+
+export const updateUserProfile = async (profile: Partial<UserProfile>) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('No user logged in');
+    
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        ...profile,
+        updated_at: new Date().toISOString(),
+      });
+      
+    if (error) throw error;
+    
+    toast.success('Profile updated successfully');
+    return true;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    toast.error('Failed to update profile');
+    return false;
+  }
+};
+
+// Check if tables exist, create them if they don't
+export const initializeDatabase = async () => {
+  try {
+    // First check if the profiles table exists
+    const { error: profilesError } = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1);
+      
+    // Create profiles table if it doesn't exist
+    if (profilesError && profilesError.code === 'PGRST104') {
+      // Create profiles table with RLS policies
+      await supabase.rpc('init_profiles_table');
+    }
+    
+    // Check if quizzes table exists
+    const { error: quizzesError } = await supabase
+      .from('quizzes')
+      .select('id')
+      .limit(1);
+      
+    // Create quizzes table if it doesn't exist
+    if (quizzesError && quizzesError.code === 'PGRST104') {
+      // Create quizzes table with RLS policies
+      await supabase.rpc('init_quizzes_table');
+    }
+    
+    // Check if quiz_results table exists
+    const { error: resultsError } = await supabase
+      .from('quiz_results')
+      .select('id')
+      .limit(1);
+      
+    // Create quiz_results table if it doesn't exist
+    if (resultsError && resultsError.code === 'PGRST104') {
+      // Create quiz_results table with RLS policies
+      await supabase.rpc('init_quiz_results_table');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error initializing database:', error);
+    return false;
+  }
 };
