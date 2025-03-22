@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { UserProfile, SUBJECTS } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { supabase, updateUserProfile } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Save, Loader2, User, Book, Clock, DollarSign } from 'lucide-react';
 import AvailabilityPicker from '@/components/AvailabilityPicker';
@@ -78,8 +79,7 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
     setIsSaving(true);
     
     try {
-      // In a real app, this would update the profile in Supabase
-      // Mock updating user profile
+      // Create updated user object
       const updatedUser: UserProfile = {
         ...user,
         subjects: formData.subjects || [],
@@ -87,6 +87,24 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
         bio: formData.bio,
         hourlyRate: formData.hourlyRate,
       };
+      
+      // Save to Supabase
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          subjects: formData.subjects || [],
+          availability: formData.availability || [],
+          bio: formData.bio,
+          hourly_rate: formData.hourlyRate,
+          updated_at: new Date().toISOString(),
+        });
+        
+      if (error) {
+        throw error;
+      }
       
       // Update in localStorage
       localStorage.setItem('tutorapp_user', JSON.stringify(updatedUser));

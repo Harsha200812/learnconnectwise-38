@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
@@ -28,16 +29,37 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         throw error;
       }
       
-      const storedUser = localStorage.getItem('tutorapp_user');
+      // Fetch user profile from Supabase
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching profile:', profileError);
+      }
       
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        setUser(user);
+      let userProfile: UserProfile;
+      
+      if (profileData) {
+        // Use profile from database
+        userProfile = {
+          id: authData.user.id,
+          email: authData.user.email || email,
+          role: profileData.role || 'learner',
+          subjects: profileData.subjects || [],
+          availability: profileData.availability || [],
+          bio: profileData.bio,
+          hourlyRate: profileData.hourly_rate,
+          created_at: profileData.created_at || new Date().toISOString(),
+        };
       } else {
+        // Fallback to sample data or create new profile
         const sampleTutor = SAMPLE_TUTORS.find(t => t.email === email);
         
-        const newUser: UserProfile = sampleTutor || {
-          id: authData.user?.id || 'demo-user',
+        userProfile = sampleTutor || {
+          id: authData.user.id,
           email,
           role: 'learner',
           subjects: [],
@@ -45,9 +67,25 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
           created_at: new Date().toISOString(),
         };
         
-        localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
-        setUser(newUser);
+        // Save this profile to Supabase for future logins
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: authData.user.id,
+            email,
+            role: userProfile.role,
+            subjects: userProfile.subjects,
+            availability: userProfile.availability,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
       }
+      
+      // Store in localStorage
+      localStorage.setItem('tutorapp_user', JSON.stringify(userProfile));
+      
+      // Update app state
+      setUser(userProfile);
       
       toast.success('Signed in successfully!', {
         duration: 2000,

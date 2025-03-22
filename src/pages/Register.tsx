@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
 import { UserProfile } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
+import { supabase, updateUserProfile } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 interface RegisterProps {
@@ -44,6 +44,24 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
         availability: availability || [],
         created_at: new Date().toISOString(),
       };
+      
+      // Save profile to Supabase database
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: authData.user.id,
+          email,
+          role,
+          subjects,
+          availability,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        
+      if (profileError) {
+        console.error('Error saving profile:', profileError);
+        toast.error('Account created but profile data not saved completely');
+      }
       
       // Store in localStorage for app persistence
       localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
