@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { toast } from "sonner";
-import { UserProfile } from './types';
+import { UserProfile, UserRole } from './types';
 
 // Initialize Supabase client with the provided values
 const supabaseUrl = 'https://onvtudfhfpqlzorfflhr.supabase.co';
@@ -59,9 +59,10 @@ export const getCurrentUser = async () => {
       return {
         id: user.id,
         email: user.email || '',
-        role: 'learner',
+        role: 'learner' as UserRole,
         subjects: [],
         availability: [],
+        created_at: new Date().toISOString(),
       };
     }
     
@@ -130,10 +131,20 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
     console.log('Profile data to update:', profile);
     
     // Format the data properly for Supabase
-    const profileData = {
+    const profileData: {
+      id: string;
+      email?: string;
+      role: UserRole;
+      subjects: string[];
+      availability: string[];
+      bio: string;
+      hourly_rate: number;
+      updated_at: string;
+      created_at?: string;
+    } = {
       id: user.id,
       email: profile.email,
-      role: profile.role || 'learner',
+      role: (profile.role || 'learner') as UserRole,
       subjects: profile.subjects || [],
       availability: profile.availability || [],
       bio: profile.bio || '',
@@ -161,14 +172,11 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
     // If profile doesn't exist, we need to include created_at
     if (!existingProfile) {
       console.log('Creating new profile record');
-      const newProfileData = {
-        ...profileData,
-        created_at: new Date().toISOString()
-      };
+      profileData.created_at = new Date().toISOString();
       
       updateResult = await supabase
         .from('profiles')
-        .insert(newProfileData);
+        .insert(profileData);
     } else {
       console.log('Updating existing profile record');
       updateResult = await supabase
@@ -191,12 +199,12 @@ export const updateUserProfile = async (profile: Partial<UserProfile>) => {
     const updatedUserProfile: UserProfile = {
       id: user.id,
       email: user.email || '',
-      role: profileData.role as UserRole,
+      role: profileData.role,
       subjects: profileData.subjects || [],
       availability: profileData.availability || [],
       bio: profileData.bio || '',
       hourlyRate: profileData.hourly_rate || 0,
-      created_at: existingProfile ? undefined : profileData.created_at,
+      created_at: profileData.created_at || new Date().toISOString(),
     };
     
     localStorage.setItem('tutorapp_user', JSON.stringify(updatedUserProfile));
