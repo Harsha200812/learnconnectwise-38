@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,10 +5,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { UserProfile, SUBJECTS, TIME_SLOTS } from '@/lib/types';
+import { UserProfile, SUBJECTS } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Save, Loader2, User, Book, Clock, DollarSign } from 'lucide-react';
+import AvailabilityPicker from '@/components/AvailabilityPicker';
 
 interface ProfileProps {
   user: UserProfile | null;
@@ -62,17 +62,12 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
       };
     });
   };
-
-  const toggleAvailability = (timeSlot: string) => {
-    setFormData((prev) => {
-      const availability = prev.availability || [];
-      return {
-        ...prev,
-        availability: availability.includes(timeSlot)
-          ? availability.filter((t) => t !== timeSlot)
-          : [...availability, timeSlot],
-      };
-    });
+  
+  const handleAvailabilityChange = (availability: string[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      availability,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -232,23 +227,10 @@ const Profile: React.FC<ProfileProps> = ({ user, setUser }) => {
                   <Clock size={16} className="text-tutorblue-500" />
                   Your Availability
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {TIME_SLOTS.slice(0, 12).map((timeSlot) => (
-                    <div key={timeSlot} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`timeSlot-${timeSlot}`}
-                        checked={(formData.availability || []).includes(timeSlot)}
-                        onCheckedChange={() => toggleAvailability(timeSlot)}
-                      />
-                      <label
-                        htmlFor={`timeSlot-${timeSlot}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {timeSlot}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+                <AvailabilityPicker
+                  value={formData.availability || []}
+                  onChange={handleAvailabilityChange}
+                />
               </div>
             </CardContent>
             <CardFooter>

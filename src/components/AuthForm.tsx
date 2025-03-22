@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SUBJECTS, TIME_SLOTS, UserRole } from '@/lib/types';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import AvailabilityPicker from './AvailabilityPicker';
 
 interface AuthFormProps {
   type: 'login' | 'register';
@@ -86,14 +87,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, onSubmit }) => {
       prev.includes(subject)
         ? prev.filter((s) => s !== subject)
         : [...prev, subject]
-    );
-  };
-
-  const toggleTimeSlot = (timeSlot: string) => {
-    setSelectedTimeSlots((prev) =>
-      prev.includes(timeSlot)
-        ? prev.filter((t) => t !== timeSlot)
-        : [...prev, timeSlot]
     );
   };
 
@@ -182,23 +175,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, onSubmit }) => {
 
                 <div className="space-y-3">
                   <FormLabel>Your availability</FormLabel>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {TIME_SLOTS.slice(0, 12).map((timeSlot) => (
-                      <div key={timeSlot} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`timeSlot-${timeSlot}`}
-                          checked={selectedTimeSlots.includes(timeSlot)}
-                          onCheckedChange={() => toggleTimeSlot(timeSlot)}
-                        />
-                        <label
-                          htmlFor={`timeSlot-${timeSlot}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {timeSlot}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <AvailabilityPicker 
+                    value={selectedTimeSlots}
+                    onChange={setSelectedTimeSlots}
+                  />
                 </div>
               </>
             )}
