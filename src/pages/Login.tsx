@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
-import { supabase, initializeDatabase } from '@/lib/supabase';
+import { supabase, initializeDatabase, getCurrentUser } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { SAMPLE_TUTORS, UserProfile } from '@/lib/types';
 
@@ -41,7 +41,22 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         throw error;
       }
       
-      // Fetch user profile from Supabase
+      // Use the getCurrentUser function to get complete user profile
+      const userProfile = await getCurrentUser();
+      
+      if (userProfile) {
+        // Update app state
+        setUser(userProfile);
+        
+        toast.success('Signed in successfully!', {
+          duration: 2000,
+        });
+        
+        navigate('/profile');
+        return;
+      }
+      
+      // Fallback to sample data or create new profile if getCurrentUser fails
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -52,11 +67,11 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         console.error('Error fetching profile:', profileError);
       }
       
-      let userProfile: UserProfile;
+      let fallbackProfile: UserProfile;
       
       if (profileData) {
         // Use profile from database
-        userProfile = {
+        fallbackProfile = {
           id: authData.user.id,
           email: authData.user.email || email,
           role: profileData.role || 'learner',
@@ -70,7 +85,7 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         // Fallback to sample data or create new profile
         const sampleTutor = SAMPLE_TUTORS.find(t => t.email === email);
         
-        userProfile = sampleTutor || {
+        fallbackProfile = sampleTutor || {
           id: authData.user.id,
           email,
           role: 'learner',
@@ -85,21 +100,21 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
           .upsert({
             id: authData.user.id,
             email,
-            role: userProfile.role,
-            subjects: userProfile.subjects,
-            availability: userProfile.availability,
-            bio: userProfile.bio || '',
-            hourly_rate: userProfile.hourlyRate || 0,
+            role: fallbackProfile.role,
+            subjects: fallbackProfile.subjects,
+            availability: fallbackProfile.availability,
+            bio: fallbackProfile.bio || '',
+            hourly_rate: fallbackProfile.hourlyRate || 0,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });
       }
       
       // Store in localStorage
-      localStorage.setItem('tutorapp_user', JSON.stringify(userProfile));
+      localStorage.setItem('tutorapp_user', JSON.stringify(fallbackProfile));
       
       // Update app state
-      setUser(userProfile);
+      setUser(fallbackProfile);
       
       toast.success('Signed in successfully!', {
         duration: 2000,

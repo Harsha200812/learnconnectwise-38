@@ -18,6 +18,8 @@ export const getCurrentUser = async () => {
     if (error) throw error;
     
     if (user) {
+      console.log("Getting profile for user:", user.id);
+      
       // Get the user profile from the profiles table
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -25,17 +27,32 @@ export const getCurrentUser = async () => {
         .eq('id', user.id)
         .single();
         
-      if (profileError && profileError.code !== 'PGRST116') {
-        // PGRST116 is the error code for "no rows found"
+      if (profileError) {
         console.error('Error fetching profile:', profileError);
+        if (profileError.code !== 'PGRST116') { // PGRST116 is "no rows found"
+          toast.error('Error loading profile data');
+        }
       }
+      
+      console.log("Profile data retrieved:", profile);
         
       if (profile) {
-        return {
+        // Create a complete user profile by combining auth and profile data
+        const userProfile = {
           id: user.id,
-          email: user.email,
-          ...profile
+          email: user.email || '',
+          role: profile.role || 'learner',
+          subjects: profile.subjects || [],
+          availability: profile.availability || [],
+          bio: profile.bio || '',
+          hourlyRate: profile.hourly_rate || 0,
+          created_at: profile.created_at || new Date().toISOString(),
         };
+        
+        // Update localStorage to ensure it's in sync with database
+        localStorage.setItem('tutorapp_user', JSON.stringify(userProfile));
+        
+        return userProfile;
       }
       
       // Return basic user if no profile exists
