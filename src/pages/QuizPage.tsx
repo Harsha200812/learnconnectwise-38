@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserProfile } from '@/lib/types';
 import { Quiz, QuizQuestion } from '@/lib/quiz-types';
 import { getQuizById, calculateQuizScore, saveQuizResult } from '@/lib/quiz-service';
-import { Clock, AlertCircle, ChevronLeft, ChevronRight, Check, Help } from 'lucide-react';
+import { Clock, AlertCircle, ChevronLeft, ChevronRight, Check, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface QuizPageProps {
