@@ -35,7 +35,13 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Sonner position="top-right" />
+        <Sonner 
+          position="bottom-right" 
+          toastOptions={{ 
+            duration: 3000,
+            className: "z-50"
+          }} 
+        />
         <BrowserRouter>
           <div className="flex flex-col min-h-screen">
             <Navbar user={user} setUser={setUser} />

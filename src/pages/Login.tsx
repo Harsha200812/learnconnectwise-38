@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
@@ -62,8 +61,10 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         }
       }
       
-      // Show success message
-      toast.success('Signed in successfully!');
+      // Show success message with shorter duration
+      toast.success('Signed in successfully!', {
+        duration: 2000,
+      });
       
       // Redirect to profile
       navigate('/profile');
@@ -83,7 +84,9 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
       localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
       setUser(newUser);
       
-      toast.success('Signed in with demo account!');
+      toast.success('Signed in with demo account!', {
+        duration: 2000,
+      });
       navigate('/profile');
     } finally {
       setIsSubmitting(false);

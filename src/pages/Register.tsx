@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
@@ -47,14 +46,18 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
       // Update app state
       setUser(newUser);
       
-      // Show success message
-      toast.success('Account created successfully!');
+      // Show success message with shorter duration
+      toast.success('Account created successfully!', {
+        duration: 2000,
+      });
       
       // Redirect to profile
       navigate('/profile');
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Failed to create account. Please try again.');
+      toast.error(error.message || 'Failed to create account. Please try again.', {
+        duration: 2000,
+      });
     } finally {
       setIsSubmitting(false);
     }
