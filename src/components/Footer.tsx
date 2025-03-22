@@ -1,5 +1,5 @@
 
-import { BookOpen, Mail, GitHub } from 'lucide-react';
+import { BookOpen, Mail, Github } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Footer = () => {
@@ -23,7 +23,7 @@ const Footer = () => {
                 <Mail size={20} aria-label="Email" />
               </a>
               <a href="#" className="text-gray-500 hover:text-tutorblue-500 transition-colors">
-                <GitHub size={20} aria-label="GitHub" />
+                <Github size={20} aria-label="GitHub" />
               </a>
             </div>
           </div>

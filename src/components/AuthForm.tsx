@@ -32,7 +32,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, onSubmit }) => {
   const registerSchema = z.object({
     email: z.string().email({ message: 'Please enter a valid email' }),
     password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-    role: z.enum(['tutor', 'learner']),
   });
 
   const formSchema = type === 'login' ? loginSchema : registerSchema;
@@ -43,7 +42,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, onSubmit }) => {
     defaultValues: {
       email: '',
       password: '',
-      role: 'learner',
     },
   });
 
@@ -141,33 +139,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ type, onSubmit }) => {
 
         {type === 'register' && (
           <>
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>I want to</FormLabel>
-                  <FormControl>
-                    <Select 
-                      onValueChange={(value: UserRole) => {
-                        field.onChange(value);
-                        setSelectedRole(value);
-                      }}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger className="select-field">
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="learner">Learn from tutors</SelectItem>
-                        <SelectItem value="tutor">Become a tutor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div>
+              <FormLabel>I want to</FormLabel>
+              <Select 
+                onValueChange={(value: UserRole) => {
+                  setSelectedRole(value);
+                }}
+                defaultValue={selectedRole}
+              >
+                <SelectTrigger className="select-field">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="learner">Learn from tutors</SelectItem>
+                  <SelectItem value="tutor">Become a tutor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {selectedRole === 'tutor' && (
               <>
