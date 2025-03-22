@@ -20,8 +20,8 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
     try {
       const { email, password } = data;
       
-      // Mock sign in with Supabase
-      const { data: authData, error } = await supabase.auth.signIn({
+      // Updated: Use signInWithPassword instead of signIn
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });

@@ -33,17 +33,26 @@ const Quizzes: React.FC<QuizzesProps> = ({ user }) => {
       return;
     }
 
-    // Load quizzes based on user interests
-    const availableQuizzes = getQuizzesForUser(user);
-    setQuizzes(availableQuizzes);
+    const fetchData = async () => {
+      try {
+        // Load quizzes based on user interests
+        const availableQuizzes = await getQuizzesForUser(user);
+        setQuizzes(availableQuizzes);
+        
+        // Load user's quiz results
+        if (user.id) {
+          const results = await getUserQuizResults(user.id);
+          setUserResults(results);
+        }
+      } catch (error) {
+        console.error("Error fetching quizzes or results:", error);
+        toast.error("Failed to load quizzes");
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Load user's quiz results
-    if (user.id) {
-      const results = getUserQuizResults(user.id);
-      setUserResults(results);
-    }
-    
-    setLoading(false);
+    fetchData();
   }, [user, navigate]);
 
   // Get the user's result for a specific quiz

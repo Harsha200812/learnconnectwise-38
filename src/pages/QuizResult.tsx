@@ -38,29 +38,39 @@ const QuizResultPage: React.FC<QuizResultPageProps> = ({ user }) => {
       return;
     }
     
-    // Load quiz data
-    const quizData = getQuizById(quizId);
-    if (!quizData) {
-      toast.error('Quiz not found');
-      navigate('/quizzes');
-      return;
-    }
-    setQuiz(quizData);
-    
-    // Load user's result for this quiz
-    if (user.id) {
-      const userResults = getUserQuizResults(user.id);
-      const quizResult = userResults.find(r => r.quizId === quizId);
-      
-      if (quizResult) {
-        setResult(quizResult);
-      } else {
-        toast.error("You haven't completed this quiz yet");
+    const fetchData = async () => {
+      try {
+        // Load quiz data
+        const quizData = await getQuizById(quizId);
+        if (!quizData) {
+          toast.error('Quiz not found');
+          navigate('/quizzes');
+          return;
+        }
+        setQuiz(quizData);
+        
+        // Load user's result for this quiz
+        if (user.id) {
+          const userResults = await getUserQuizResults(user.id);
+          const quizResult = userResults.find(r => r.quizId === quizId);
+          
+          if (quizResult) {
+            setResult(quizResult);
+          } else {
+            toast.error("You haven't completed this quiz yet");
+            navigate('/quizzes');
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching quiz or results:", error);
+        toast.error("Failed to load quiz results");
         navigate('/quizzes');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
     
-    setIsLoading(false);
+    fetchData();
   }, [quizId, user, navigate]);
 
   // Format time (seconds) to minutes and seconds

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +27,7 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [quizStartTime, setQuizStartTime] = useState(Date.now());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ensure user is logged in and load quiz
@@ -49,6 +49,7 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
             setQuiz(aiQuiz);
             setTimeLeft(aiQuiz.timeLimit * 60); // Convert minutes to seconds
             setQuizStartTime(Date.now());
+            setIsLoading(false);
             return;
           }
         } catch (error) {
@@ -57,15 +58,27 @@ const QuizPage: React.FC<QuizPageProps> = ({ user }) => {
       }
       
       // Otherwise load from sample quizzes
-      const quizData = getQuizById(quizId);
-      if (quizData) {
-        setQuiz(quizData);
-        setTimeLeft(quizData.timeLimit * 60); // Convert minutes to seconds
-        setQuizStartTime(Date.now());
-      } else {
-        toast.error('Quiz not found');
-        navigate('/quizzes');
-      }
+      const fetchQuiz = async () => {
+        try {
+          const quizData = await getQuizById(quizId);
+          if (quizData) {
+            setQuiz(quizData);
+            setTimeLeft(quizData.timeLimit * 60); // Convert minutes to seconds
+            setQuizStartTime(Date.now());
+          } else {
+            toast.error('Quiz not found');
+            navigate('/quizzes');
+          }
+        } catch (error) {
+          console.error("Error fetching quiz:", error);
+          toast.error('Failed to load quiz');
+          navigate('/quizzes');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      fetchQuiz();
     }
     
     return () => {
