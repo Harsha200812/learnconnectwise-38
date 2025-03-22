@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION init_profiles_table()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Create the table if it doesn't exist
@@ -45,6 +46,7 @@ CREATE OR REPLACE FUNCTION init_quizzes_table()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Create the table if it doesn't exist
@@ -86,6 +88,7 @@ CREATE OR REPLACE FUNCTION init_quiz_results_table()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Create the table if it doesn't exist

@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION create_profiles_table()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   -- Check if the table exists
