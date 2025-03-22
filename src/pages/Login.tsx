@@ -19,7 +19,6 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
     try {
       const { email, password } = data;
       
-      // Updated: Use signInWithPassword instead of signIn
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -29,49 +28,35 @@ const Login: React.FC<LoginProps> = ({ setUser }) => {
         throw error;
       }
       
-      // Check if user already exists in localStorage
       const storedUser = localStorage.getItem('tutorapp_user');
       
       if (storedUser) {
-        // User exists, load their profile
         const user = JSON.parse(storedUser);
         setUser(user);
       } else {
-        // For demo, create a sample user
-        // In a real app, we would fetch the user profile from Supabase
         const sampleTutor = SAMPLE_TUTORS.find(t => t.email === email);
         
-        if (sampleTutor) {
-          // Use sample tutor
-          localStorage.setItem('tutorapp_user', JSON.stringify(sampleTutor));
-          setUser(sampleTutor);
-        } else {
-          // Create default learner profile
-          const newUser: UserProfile = {
-            id: 'demo-user',
-            email,
-            role: 'learner',
-            subjects: [],
-            availability: [],
-            created_at: new Date().toISOString(),
-          };
-          
-          localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
-          setUser(newUser);
-        }
+        const newUser: UserProfile = sampleTutor || {
+          id: authData.user?.id || 'demo-user',
+          email,
+          role: 'learner',
+          subjects: [],
+          availability: [],
+          created_at: new Date().toISOString(),
+        };
+        
+        localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
+        setUser(newUser);
       }
       
-      // Show success message with shorter duration
       toast.success('Signed in successfully!', {
         duration: 2000,
       });
       
-      // Redirect to profile
       navigate('/profile');
     } catch (error: any) {
       console.error('Login error:', error);
       
-      // For demo purposes, create a default user anyway
       const newUser: UserProfile = {
         id: 'demo-user',
         email: data.email,

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '@/components/AuthForm';
@@ -17,10 +18,10 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
     setIsSubmitting(true);
     
     try {
-      // In a real app, this would connect to Supabase auth
+      // Destructure form data
       const { email, password, role, subjects, availability } = data;
       
-      // Mock sign up with Supabase
+      // Sign up with Supabase
       const { data: authData, error } = await supabase.auth.signUp({
         email,
         password,
@@ -30,9 +31,13 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
         throw error;
       }
       
+      if (!authData.user) {
+        throw new Error('Failed to create user account');
+      }
+      
       // Create user profile
       const newUser: UserProfile = {
-        id: authData.user?.id || 'temp-id',
+        id: authData.user.id,
         email,
         role,
         subjects: subjects || [],
@@ -40,7 +45,7 @@ const Register: React.FC<RegisterProps> = ({ setUser }) => {
         created_at: new Date().toISOString(),
       };
       
-      // Store in localStorage (for demo purposes)
+      // Store in localStorage for app persistence
       localStorage.setItem('tutorapp_user', JSON.stringify(newUser));
       
       // Update app state
